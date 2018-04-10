@@ -1,0 +1,467 @@
+{
+
+  "AWSTemplateFormatVersion": "2010-09-09",
+
+  "Description": "AWS CloudFormation sample template that contains a single Lambda function behind an API Gateway",
+
+
+  "Resources": {
+
+    "BidAmountUpdate": {
+
+      "Type": "AWS::Lambda::Function",
+
+      "Properties": {
+
+        "Code": {
+
+          "ZipFile": { "Fn::Join": ["\n", [
+
+            "import boto3,json",
+            "from boto3.dynamodb.conditions import Key, Attr",
+            "def lambda_handler(event, context):",
+            "   dynamodb = boto3.resource('dynamodb')",
+            "   bidtbl = dynamodb.Table('Bidding')",
+            "   matchId=int(event['queryStringParameters']['mid'])",
+            "   getWin=bidtbl.scan(FilterExpression=Attr('winner').eq('WIN') & Attr('matchId').eq(matchId))",
+            "   getWin=getWin['Items']",
+            "   team=''",
+            "   for i in range(len(getWin)):",
+            "      team=getWin[i]['team']",
+            "   if team == '':",
+            "      return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/suraj-console/noWin.html\"}}",
+            "   response = bidtbl.scan(FilterExpression=Attr('team').eq(team) & Attr('matchId').eq(matchId))",
+            "   items = response['Items']",
+            "   winBid = 0",
+            "   for l in items:",
+            "      winBid = winBid + l['bidAmt']",
+            "   losBid=0",
+            "   resource = bidtbl.scan(FilterExpression=Attr('team').ne(team) & Attr('matchId').eq(matchId))",
+            "   losers=resource['Items']",
+            "   for ls in losers:",
+            "      losBid = losBid + ls['bidAmt']",
+            "   usrtbl=dynamodb.Table('BidderReg')",
+            "   ",
+            "   flag=False",
+            "   for l in range(len(items)):",
+            "      winshare=items[l]['bidAmt']/winBid",
+            "      mail = items[l]['EmailID']",
+            "      bidAmt=winshare*losBid+items[l]['bidAmt']",
+            "      userinfo = usrtbl.query(KeyConditionExpression=Key('EmailID').eq(mail))",
+            "      user=userinfo['Items']",
+            "      for i in range(len(user)):",
+            "         bal=user[i]['Amt']",
+            "         user[i]['Amt']=bal+int(bidAmt)",
+            "         usrtbl.put_item(Item=user[i])",
+            "         flag=True",
+            "   if flag:",
+            "      return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/divyaranitraining/success.html\"}}",
+            "   else:",
+            "      return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/divyaranitraining/biddingpage.html\" }}"
+
+
+
+          ]]}
+
+        },
+
+        "Description": "Bidding Amount update function",
+
+        "FunctionName": "BidAmountUpdate",
+
+        "Handler": "index.lambda_handler",
+
+        "Role": { "Fn::GetAtt": ["LambdaExecutionRole", "Arn"]},
+
+        "Runtime": "python2.7"
+
+      }
+
+    },
+
+
+
+
+    "LambdaExecutionRole": {
+
+      "Type": "AWS::IAM::Role",
+
+      "Properties": {
+
+        "AssumeRolePolicyDocument": {
+
+          "Version": "2012-10-17",
+
+          "Statement": [{
+
+            "Effect": "Allow",
+
+            "Principal": { "Service": ["lambda.amazonaws.com"] },
+
+            "Action": ["sts:AssumeRole"]
+
+          }]
+
+        },
+
+		"Policies": [{
+
+          "PolicyName": "DDBwriteAccessPolicy",
+
+          "PolicyDocument": {
+
+            "Version": "2012-10-17",
+
+            "Statement": [{
+
+              "Effect": "Allow",
+
+              "Action": "*",
+
+
+              "Resource": ["arn:aws:dynamodb:us-east-1:488599217855:table/Bidding",
+
+              				"arn:aws:dynamodb:us-east-1:488599217855:table/BidderReg",
+
+							"arn:aws:dynamodb:*:*:table/*/backup/*"]
+
+            },{
+
+			"Effect": "Allow",
+
+            "Action": ["dynamodb:TagResource","dynamodb:UntagResource",
+
+			  "dynamodb:PurchaseReservedCapacityOfferings"],
+
+			"Resource": "*"
+
+			}
+
+			]
+
+          }
+
+        }],
+
+        "ManagedPolicyArns": ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
+
+      }
+
+    },
+
+
+
+    "bidAmountApi": {
+
+      "Type": "AWS::ApiGateway::RestApi",
+
+      "Properties": {
+
+        "Name": "Bidding Amount update API",
+
+        "Description": "API used for bidding table update",
+
+        "FailOnWarnings": true
+
+      }
+
+    },
+
+
+
+    "LambdaPermission": {
+
+      "Type": "AWS::Lambda::Permission",
+
+      "Properties": {
+
+        "Action": "lambda:invokeFunction",
+
+        "FunctionName": {"Fn::GetAtt": ["BidAmountUpdate", "Arn"]},
+
+        "Principal": "apigateway.amazonaws.com",
+
+        "SourceArn": {"Fn::Join": ["", ["arn:aws:execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"}, ":", {"Ref": "bidAmountApi"}, "/*"]]}
+
+      }
+
+    },
+
+
+
+    "ApiGatewayCloudWatchLogsRole": {
+
+      "Type": "AWS::IAM::Role",
+
+      "Properties": {
+
+        "AssumeRolePolicyDocument": {
+
+          "Version": "2012-10-17",
+
+          "Statement": [{
+
+            "Effect": "Allow",
+
+            "Principal": { "Service": ["apigateway.amazonaws.com"] },
+
+            "Action": ["sts:AssumeRole"]
+
+          }]
+
+        },
+
+        "Policies": [{
+
+          "PolicyName": "ApiGatewayLogsPolicy",
+
+          "PolicyDocument": {
+
+            "Version": "2012-10-17",
+
+            "Statement": [{
+
+              "Effect": "Allow",
+
+              "Action": [
+
+                "logs:CreateLogGroup",
+
+                "logs:CreateLogStream",
+
+                "logs:DescribeLogGroups",
+
+                "logs:DescribeLogStreams",
+
+                "logs:PutLogEvents",
+
+                "logs:GetLogEvents",
+
+                "logs:FilterLogEvents"
+
+              ],
+
+              "Resource": "*"
+
+            }]
+
+          }
+
+        }]
+
+      }
+
+    },
+
+
+
+    "ApiGatewayAccount": {
+
+      "Type": "AWS::ApiGateway::Account",
+
+      "Properties": {
+
+        "CloudWatchRoleArn": {"Fn::GetAtt": ["ApiGatewayCloudWatchLogsRole", "Arn"] }
+
+      }
+
+    },
+
+
+
+    "BiddingAmountApiStage": {
+
+      "DependsOn": ["ApiGatewayAccount"],
+
+      "Type": "AWS::ApiGateway::Stage",
+
+      "Properties": {
+
+        "DeploymentId": {"Ref": "ApiDeployment"},
+
+        "MethodSettings": [{
+
+          "DataTraceEnabled": true,
+
+          "HttpMethod": "*",
+
+          "LoggingLevel": "INFO",
+
+          "ResourcePath": "/*"
+
+        }],
+
+        "RestApiId": {"Ref": "bidAmountApi"},
+
+        "StageName": "LATEST",
+
+        "Variables": {
+
+          "Suraj": "Test"
+
+        }
+
+      }
+
+    },
+
+
+
+    "ApiDeployment": {
+
+      "Type": "AWS::ApiGateway::Deployment",
+
+      "DependsOn": ["BidAmtUpdateGET", "BidAmtUpdatePOST"],
+
+      "Properties": {
+
+        "RestApiId": {"Ref": "bidAmountApi"},
+
+        "StageName": "TestStage"
+
+      }
+
+    },
+
+
+
+    "BidAmountResource": {
+
+      "Type": "AWS::ApiGateway::Resource",
+
+      "Properties": {
+
+        "RestApiId": {"Ref": "bidAmountApi"},
+
+        "ParentId": {"Fn::GetAtt": ["bidAmountApi", "RootResourceId"]},
+
+        "PathPart": "UpdateAccount"
+
+      }
+
+    },
+
+
+
+    "BidAmtUpdateGET": {
+
+      "DependsOn": "LambdaPermission",
+
+      "Type": "AWS::ApiGateway::Method",
+
+      "Properties": {
+
+        "AuthorizationType": "NONE",
+
+        "HttpMethod": "GET",
+
+        "Integration": {
+
+          "Type": "AWS_PROXY",
+
+          "IntegrationHttpMethod": "POST",
+
+          "Uri": {"Fn::Join": ["",
+
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["BidAmountUpdate", "Arn"]}, "/invocations"]
+
+          ]},
+
+          "IntegrationResponses": [{
+
+            "StatusCode": 200
+
+          }]
+
+        },
+
+        "RequestParameters": {
+
+          "method.request.querystring.name": false
+
+        },
+
+        "ResourceId": {"Ref": "BidAmountResource"},
+
+        "RestApiId": {"Ref": "bidAmountApi"},
+
+        "MethodResponses": [{
+
+          "StatusCode": 200
+
+        }]
+
+      }
+
+    },
+
+
+
+    "BidAmtUpdatePOST": {
+
+      "DependsOn": "LambdaPermission",
+
+      "Type": "AWS::ApiGateway::Method",
+
+      "Properties": {
+
+        "AuthorizationType": "NONE",
+
+        "HttpMethod": "POST",
+
+        "Integration": {
+
+          "Type": "AWS_PROXY",
+
+          "IntegrationHttpMethod": "POST",
+
+          "Uri": {"Fn::Join": ["",
+
+            ["arn:aws:apigateway:", {"Ref": "AWS::Region"}, ":lambda:path/2015-03-31/functions/", {"Fn::GetAtt": ["BidAmountUpdate", "Arn"]}, "/invocations"]
+
+          ]},
+
+          "IntegrationResponses": [{
+
+            "StatusCode": 200
+
+          }]
+
+        },
+
+        "RequestParameters": {
+
+          "method.request.querystring.name": false
+
+        },
+
+        "ResourceId": {"Ref": "BidAmountResource"},
+
+        "RestApiId": {"Ref": "bidAmountApi"},
+
+        "MethodResponses": [{
+
+          "StatusCode": 200
+
+        }]
+
+      }
+
+    }
+  },
+
+
+
+  "Outputs": {
+
+    "RootUrl": {
+
+      "Description": "Root URL of the API gateway",
+
+      "Value": {"Fn::Join": ["", ["https://", {"Ref": "bidAmountApi"}, ".execute-api.", {"Ref": "AWS::Region"}, ".amazonaws.com"]]}
+
+    }
+
+  }
+
+}
