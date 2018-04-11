@@ -36,16 +36,16 @@
             "      if getWin != []:",
             "         if team !='':",
             "            if team != getWin[i]['team']:",
-            "               return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/suraj-console/invalidTeam.html\"}}",
+            "               return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.amazonaws.com/suraj-console/invalidTeam.html\"}}",
             "         team=getWin[i]['team']",
 
             "   if team=='':",
             "      getLos=bidtbl.scan(FilterExpression=Attr('winner').eq('LOS') & Attr('matchId').eq(matchId))",
             "      getLos=getLos['Items']",
             "      if getLos == []:",
-            "         return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/suraj-console/invalidData.html\"}}",
+            "         return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.amazonaws.com/suraj-console/invalidData.html\"}}",
             "      else:",
-            "         return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/suraj-console/noWinner.html\"}}",
+            "         return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.amazonaws.com/suraj-console/noWinner.html\"}}",
 
             "   winBid = 0",
             "   response = bidtbl.scan(FilterExpression=Attr('team').eq(team) & Attr('matchId').eq(matchId))",
@@ -79,11 +79,11 @@
             "            flag=True",
 
             "   if usrfault:",
-            "      return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/suraj-console/invalidUser.html?fmail=\"+str(fmail)}}",
+            "      return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.amazonaws.com/suraj-console/invalidUser.html?fmail=\"+str(fmail)}}",
             "   elif flag:",
             "      return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/divyaranitraining/success.html\"}}",
             "   else:",
-            "      return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/divyaranitraining/biddingpage.html\" }}"
+            "      return { \"statusCode\" : 302,\"headers\": { \"Location\" : \"https://s3.ap-south-1.amazonaws.com/divyaranitraining/AdminBidAmountUpdate.html\" }}"
 
           ]]}
 
