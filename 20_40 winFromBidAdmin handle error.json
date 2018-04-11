@@ -74,7 +74,7 @@
             "      else:",
             "         for i in range(len(user)):",
             "            bal=user[i]['Amt']",
-            "            user[i]['Amt']=bal+int(bidAmt)",
+            "            user[i]['Amt']=int(bal)+int(bidAmt)",
             "            usrtbl.put_item(Item=user[i])",
             "            flag=True",
 
@@ -483,6 +483,13 @@
       "Description": "Root URL of the API gateway",
 
       "Value": {"Fn::Join": ["", ["https://", {"Ref": "bidAmountApi"}, ".execute-api.", {"Ref": "AWS::Region"}, ".amazonaws.com"]]}
+
+    },
+    "EndpointURL": {
+
+      "Description": "Root URL of the API gateway",
+
+      "Value": {"Fn::Join": ["", ["https://", {"Ref": "bidAmountApi"}, ".execute-api.", {"Ref": "AWS::Region"}, ".amazonaws.com/",{"Ref":"BiddingAmountApiStage"},"/UpdateAccount"]]}
 
     }
 
